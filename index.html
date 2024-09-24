@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link href="https://cdn.bootcdn.net/ajax/libs/semantic-ui/2.5.0/semantic.min.css" rel="stylesheet">
+    <title>在线括号序列与树互转</title>
+</head>
+
+<body>
+    <div class="ui container">
+        <div class="ui segment" style="margin-top: 40px;">
+            <h1 class="ui header">括号序列转树</h1>
+            <div class="ui form">
+                <div class="field">
+                    <label>括号序列：</label>
+                    <input id="bracketString" type="text" placeholder="请输入括号序列" value="()()" autocomplete="off" />
+                </div>
+                <div class="field">
+                    <label>结果：</label>
+                    <div id="tree"></div>
+                </div>
+            </div>
+            <button class="ui primary button" onclick="main()">转换</button>
+            <button class="ui green button" onclick="copy3()">复制（传统格式）</button>
+            <button class="ui yellow button" onclick="copy2()">复制（DOT 格式）</button>
+        </div>
+        <div class="ui segment" style="margin-top: 20px;">
+            <h1 class="ui header">树转括号序列</h1>
+            <div class="ui form">
+                <div class="field">
+                    <label>树（传统格式）：</label>
+                    <textarea id="treeString" rows="8" placeholder="请输入树" autocomplete="off"></textarea>
+                </div>
+                <div class="field">
+                    <label>结果：</label>
+                    <input id="bracketResult" type="text" placeholder="括号序列结果" readonly />
+                </div>
+            </div>
+            <button class="ui primary button" onclick="main2()" style="margin-top: 10px">转换</button>
+            <button class="ui green button" onclick="copy()">复制</button>
+            <button class="ui teal button" onclick="move()">漂移</button>
+        </div>
+    </div>
+</body>
+<script src="https://cdn.bootcdn.net/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
+<script src="https://unpkg.com/@viz-js/viz@3.7.0/lib/viz-standalone.js"></script>
+<script src="https://cdn.bootcdn.net/ajax/libs/semantic-ui/2.5.0/semantic.min.js"></script>
+<script>
+    document.getElementById("treeString").innerHTML = "1 2\n1 3";
+    const tree2dot = (tree) => {
+        let fa = new Array(tree.length).fill(0);
+        let tot = 1, now = 1;
+        let dot = "";
+        document.traditional_doc = "";
+        for (let i = 0; i < tree.length; i++) {
+            if (tree[i] == '(') {
+                dot += `    ${now} -- ${++tot}\n`;
+                document.traditional_doc += `${now} ${tot}\n`;
+                fa[tot] = now;
+                now = tot;
+            } else {
+                now = fa[now];
+            }
+        }
+        return `graph tree{\n${dot}}`;
+    };
+    const edges2tree = (edges) => {
+        const adj = new Map();
+        edges = edges.split("\n");
+        for (const edge of edges) {
+            const [u, v] = edge.split(" ");
+            if (!adj.has(u)) adj.set(u, []);
+            if (!adj.has(v)) adj.set(v, []);
+            adj.get(u).push(v);
+            adj.get(v).push(u);
+        }
+        let result = "";
+        const dfs = (u, fa) => {
+            for (const v of adj.get(u)) {
+                if (v != fa) {
+                    result += "(";
+                    dfs(v, u);
+                    result += ")";
+                }
+            }
+        };
+        dfs("1", "0");
+        return result;
+    };
+    const repr = (content) => {
+        content = content.replace(/\n/g, '\\n');
+        content = content.replace(/\t/g, '\\t');
+        return `"${content}"`;
+    };
+    const main = () => {
+        const tree = document.getElementById("bracketString").value;
+        if (tree.length == 0 || tree.length & 1) {
+            alert(`检测到不合法的括号序列长度 ${tree.length}`);
+            return;
+        }
+        for (let i = 0; i < tree.length; i++) {
+            if (tree[i] != '(' && tree[i] != ')') {
+                alert(`检测到不合法的括号序列字符 ${tree[i]} （位于列 ${i + 1}）`);
+                return;
+            }
+        }
+        let dot;
+        try {
+            dot = tree2dot(tree);
+        }
+        catch (e) {
+            alert(`转换过程中发生错误：${e}`);
+            return;
+        }
+        document.dot_doc = dot;
+        Viz.instance().then(function (viz) {
+            document.getElementById("tree").innerHTML = "";
+            document.getElementById("tree").appendChild(viz.renderSVGElement(dot));
+        });
+    };
+    const main2 = () => {
+        let edges;
+        try {
+            edges = document.getElementById("treeString").value;
+        } catch (e) {
+            alert(`转换过程中发生错误：${e}`);
+            return;
+        }
+        const tree = edges2tree(edges);
+        document.getElementById("bracketResult").value = tree;
+    };
+    const copytext = (text) => {
+        const clipboard = navigator.clipboard;
+        if (!clipboard) {
+            alert("您的浏览器不支持该功能");
+            return;
+        }
+        clipboard.writeText(text);
+        alert("已复制到剪贴板");
+    };
+    const copy = () => {
+        copytext(document.getElementById("bracketResult").value);
+    };
+    const copy2 = () => {
+        copytext(document.dot_doc);
+    };
+    const copy3 = () => {
+        copytext(document.traditional_doc);
+    };
+    const move = () => {
+        const result = document.getElementById("bracketResult").value;
+        document.getElementById("bracketString").value = result;
+    }
+    $(document).ready(() => {
+        main(); main2();
+    });
+</script>
+
+</html>
